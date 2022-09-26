@@ -15,9 +15,9 @@ static int const Manager_s = sizeof ( Manager );
 
 Manager *manager ( ) {
     Manager *manager = malloc ( Manager_s );
-    
-    manager->entities   = ((void*)0);
-    manager->prevEntity = ((void*)0);
+
+    mlist_init ( &manager->entities, NULL );
+    mlist_init ( &manager->trash,    NULL );
 
     return manager;
 }
@@ -25,36 +25,37 @@ Manager *manager ( ) {
 
 Entity *managerAdd ( Manager *const manager, Entity const* template ) {
     Entity *e = entity ( template );
-	
-    e->next = manager->entities;
-    manager->entities = e;
+
+    mlist_add ( &manager->entities, e );
 
 	return e;
 }
 
 
-void managerUpdate ( Manager *const  manager ) {
-    managerForeach ( manager, entity )
-        actions [ entity->action ] ( manager, entity );
+void managerUpdate ( Manager *const manager ) {
+    for ( mlistNode *n = manager->entities.head; n; n = n->next ) {
+        Entity *e = n->data;
+        actions [ e->action ] ( &manager, e );
+    }
 }
 
 
 void managerEnd ( Manager *const manager ) {
-    managerForeach ( manager, entity )
-        delete ( manager, entity );
+    for ( mlistNode *n = manager->entities.head; n; n = n->next )
+        delete ( manager, (Entity*) n->data );
 
     free ( manager );
 }
 
 
-void managerEntityUpdate ( Manager *const manager, Entity *const entity ) {
-    update ( manager, entity );
-}
+// void managerEntityUpdate ( Manager *const manager, Entity *const entity ) {
+//     update ( manager, entity );
+// }
 
 
-void managerEntityDelete ( Manager *const manager, Entity *const entity ) {
-    delete ( manager, entity );
-}
+// void managerEntityDelete ( Manager *const manager, Entity *const entity ) {
+//     delete ( manager, entity );
+// }
 
 
 
@@ -74,7 +75,7 @@ inline static void update ( Manager *const manager, Entity *const entity ) {
     XE ( entity->Update,        entity );
     XS ( entity->state->update, entity );
 
-    manager->prevEntity = entity;
+    // manager->prevEntity = entity;
 }
 
 inline static void change ( Manager *const manager, Entity *const entity ) {
@@ -90,14 +91,14 @@ inline static void delete ( Manager *const manager, Entity *const entity ) {
     XS ( entity->state->exit, entity );
     XE ( entity->Delete,      entity );
 
-    if ( manager->entities == entity ) {
-        manager->entities = entity->next;
-        manager->prevEntity = NULL; 
-    }
-    else {
-        manager->prevEntity->next = entity->next;
-        manager->prevEntity       = entity;
-    }
+    // if ( manager->entities == entity ) {
+    //     manager->entities = entity->next;
+    //     manager->prevEntity = NULL; 
+    // }
+    // else {
+    //     manager->prevEntity->next = entity->next;
+    //     manager->prevEntity       = entity;
+    // }
 
     free ( entity->components );
     free ( entity );
