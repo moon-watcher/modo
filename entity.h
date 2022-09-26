@@ -24,7 +24,7 @@ typedef struct {
     void ( *Delete ) ( );
     
     void *exec;
-    void *next;  // debería tenerlo el manager!
+    // void *next;  // debería tenerlo el manager!
     // void *COMPS[];
 }
 Entity;
