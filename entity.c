@@ -1,24 +1,33 @@
 #include <genesis.h>
 #include "entity.h"
 
+static const int Entity_s = sizeof ( Entity );
 
-static void nullf ( Entity *e ) { }
+
+static void _nullf ( /* Entity *const e */ );
+static void _init  ( Entity *const e );
 
 
 Entity *entity ( Entity const* template ) {
-    Entity *entity = malloc ( sizeof ( Entity ) );
-    memcpy ( entity, template, sizeof ( Entity ) );
+    Entity *entity;
+    
+    entity = malloc ( Entity_s );
+    memcpy ( entity, template, Entity_s );
 
     entity->components = malloc ( template->compsSize );
     memcpy ( entity->components, template->components, template->compsSize );
 
-    entity->action = ENTITY_ACTION_CREATE;
-
-    if ( !entity->Awake  ) entity->Awake  = nullf;
-    if ( !entity->Update ) entity->Update = nullf;
-    if ( !entity->Delete ) entity->Delete = nullf;
+    _init ( entity );
 
     return entity;
+}
+
+
+void entityInit ( Entity *const entity, Entity const* template ) {
+    memcpy ( entity, template, Entity_s );
+    memcpy ( entity->components, template->components, template->compsSize );
+
+    _init ( entity );
 }
 
 
@@ -44,4 +53,19 @@ void entityDelete ( Entity *const entity ) {
 
 unsigned entityStateChanged ( Entity *const entity ) {
     return (int) entity->action == ENTITY_ACTION_CHANGE;
+}
+
+
+
+
+static void _nullf ( /* Entity *const e */ ) {
+    //
+}
+
+static void _init ( Entity *const e ) {
+    e->action = ENTITY_ACTION_CREATE;
+
+    if ( !e->Awake  ) e->Awake  = _nullf;
+    if ( !e->Update ) e->Update = _nullf;
+    if ( !e->Delete ) e->Delete = _nullf;
 }
