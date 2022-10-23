@@ -2,18 +2,76 @@
 #include "manager.h"
 
 
-static void         _removeAll      ( ManagerNode *const );
-static int          _count          ( ManagerNode *const );
-static ManagerNode* _findInCache    ( ManagerList *const, unsigned );
-static void         _addToList      ( ManagerList *const, ManagerNode *const );
-static void         _removeFromList ( ManagerList *const, ManagerNode *const );
+static void _appendToCache ( Manager *const manager, ManagerNode *const node ) {
+    if ( manager->cache.head )
+        manager->cache.head->next = manager->cache.head;
 
-inline static void create ( Manager *const, ManagerNode *const );
-inline static void update ( Manager *const, ManagerNode *const );
-inline static void change ( Manager *const, ManagerNode *const );
-inline static void delete ( Manager *const, ManagerNode *const );
+    manager->cache.head = node;
+}
 
-static void ( *actions [ ] ) ( ) = { create, update, change, delete };
+
+static void _removeFromCache ( Manager *const manager, ManagerNode *const node ) {
+    --manager->cache.count;
+
+    if ( manager->prevNode )
+        manager->prevNode->next = node->next;
+    else
+        manager->cache.head = node->next;
+
+    node->next = NULL;
+}
+
+
+static ManagerNode *_findInCache ( Manager *const manager, unsigned compsSize ) {
+    ManagerNode *node = manager->cache.head;
+    manager->prevNode = NULL;
+
+    while ( node ) {
+        if ( node->entity->compsSize == compsSize )
+            return node;
+
+        manager->prevNode = node;
+        node = node->next;
+    }
+
+    return NULL;
+}
+
+
+static void _appendToEntities ( Manager *const manager, ManagerNode *const node ) {
+    ++manager->entities.count;
+
+    if ( manager->entities.head )
+        manager->entities.tail->next = node;
+    else
+        manager->entities.head = node;
+        
+    manager->entities.tail = node;
+    node->next = NULL;
+}
+
+
+static void _removeFromEntities ( Manager *const manager, ManagerNode *const node ) {
+    if ( manager->prevNode->next )
+        manager->prevNode->next = node->next;
+}
+
+
+static void _removeAll ( ManagerNode *const headNode ) {
+    ManagerNode *node = headNode;
+    
+    while ( node ) {
+        Entity      *const entity = node->entity;
+        ManagerNode *const next   = node->next;
+
+        free ( entity->components );
+        free ( entity );
+        free ( node );
+
+        node = next;
+    }
+}
+
 
 
 
@@ -27,33 +85,52 @@ Manager *manager ( ) {
 
 
 Entity *managerAdd ( Manager *const manager, Entity const* template ) {
-    ManagerNode *node = _findInCache ( &manager->cache, template->compsSize );
+    ManagerNode *node = _findInCache ( manager, template->compsSize );
     
-    if ( node ){
+    if ( node ) {
         entityInit ( node->entity, template );
-        _removeFromList ( &manager->cache, node );
+        _removeFromCache ( manager, node );
     }
     else {
         node = malloc ( sizeof ( ManagerNode ) );
         node->entity = entity ( template );
     }    
 
-    _addToList ( &manager->entities, node );
+    _appendToEntities ( manager, node );
 
 	return node->entity;
 }
 
 
 void managerUpdate ( Manager *const manager ) {
-    for ( ManagerNode *n = manager->entities.head; n; n = n->next )
-        actions [ n->entity->action ] ( &manager, n );
+    ManagerNode *node = manager->entities.head;
 
-    // ManagerNode *node = manager->entities.head;
-    
-    // while ( node ) {
-    //     actions [ node->entity->action ] ( &manager, node );
-    //     node = node->next;
-    // }
+    while ( node ) {
+        Entity *const entity = node->entity;
+        State  *const state  = entity->state;
+
+        switch ( entity->action ) {
+            case ENTITY_CHANGE:
+                entity->prevState->exit ( entity );
+
+            case ENTITY_CREATE:
+                state->enter ( entity );
+                entity->action = ENTITY_UPDATE;
+
+            case ENTITY_UPDATE:
+                state->update ( entity );            
+                break;
+
+            default: // case ENTITY_DELETE:
+                state->exit ( entity );
+
+                _removeFromEntities ( manager, node );
+                _appendToCache ( manager, node );
+        }
+        
+        manager->prevNode = node;
+        node = node->next;
+    }
 }
 
 
@@ -72,115 +149,4 @@ int managerCount ( Manager *const manager ) {
 
 int managerCountCache ( Manager *const manager ) {
     return manager->cache.count;
-}
-
-
-
-#define XE( F, E )            F ( E )
-#define XS( F, E )   if ( F ) F ( E )
-
-inline static void create ( Manager *const manager, ManagerNode *const node ) {
-    Entity *const entity = node->entity;
-
-    XE ( entity->Awake,        entity );
-    XS ( entity->state->enter, entity );
-
-    entity->action = ENTITY_ACTION_UPDATE;
-        
-    update ( manager, node );
-}
-
-
-inline static void update ( Manager *const manager, ManagerNode *const node ) {
-    Entity *const entity = node->entity;
-    
-    XE ( entity->Update,        entity );
-    XS ( entity->state->update, entity );
-
-    manager->entities.prev = node;
-}
-
-
-inline static void change ( Manager *const manager, ManagerNode *const node ) {
-    Entity *const entity = node->entity;
-
-    XS ( entity->prevState->exit, entity );
-    XS ( entity->state->enter,    entity );
-
-    entity->action = ENTITY_ACTION_UPDATE;
-    update ( manager, node );
-}
-
-
-inline static void delete ( Manager *const manager, ManagerNode *const node ) {
-    Entity *const entity = node->entity;
-
-    XS ( entity->state->exit, entity );
-    XE ( entity->Delete,      entity );
-
-    // remove node from entities list
-    if ( manager->entities.prev->next )
-        manager->entities.prev->next = node->next;
-    
-    // move node to cache list
-    //if ( manager->cache.head )
-    manager->cache.head->next = manager->cache.head;
-    manager->cache.head = node;
-}
-
-
-static void _removeAll ( ManagerNode *const head ) {
-    ManagerNode *node = head;
-    
-    while ( node ) {
-        Entity      *const entity = node->entity;
-        ManagerNode *const next   = node->next;
-
-        free ( entity->components );
-        free ( entity );
-        free ( node );
-
-        node = next;
-    }
-}
-
-
-static ManagerNode *_findInCache ( ManagerList *const mh, unsigned compsSize ) {
-    mh->prev = NULL;
-    ManagerNode *node = mh->head;
-
-    while ( node ) {
-        if ( node->entity->compsSize == compsSize )
-            return node;
-
-        mh->prev = node;
-        node = node->next;
-    }
-
-    return NULL;
-}
-
-
-static void _addToList ( ManagerList *const mh, ManagerNode *const node ) {
-    ++mh->count;
-
-    if ( mh->head )
-        mh->tail->next = node;
-    else
-        mh->head = node;
-        
-    mh->tail = node;
-    node->next = NULL;
-}
-
-
-static void _removeFromList ( ManagerList *const mh, ManagerNode *const node ) {
-    --mh->count;
-
-    if ( mh->prev )
-        mh->prev->next = node->next;
-    else
-        mh->head = node->next;
-
-    node->next = NULL;
 }

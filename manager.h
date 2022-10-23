@@ -11,7 +11,6 @@ ManagerNode;
 typedef struct {
     ManagerNode *head;
     ManagerNode *tail;
-    ManagerNode *prev;
     int count;
 }
 ManagerList;
@@ -19,8 +18,9 @@ ManagerList;
 typedef struct {
     char *name;
 	
-    ManagerList entities;
-    ManagerList cache;
+    ManagerList  entities;
+    ManagerList  cache;
+    ManagerNode *prevNode;
 }
 Manager;
 

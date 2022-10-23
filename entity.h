@@ -4,10 +4,10 @@
 
 
 enum {
-    ENTITY_ACTION_CREATE,
-    ENTITY_ACTION_UPDATE,
-    ENTITY_ACTION_CHANGE,
-    ENTITY_ACTION_DELETE,
+    ENTITY_CREATE,
+    ENTITY_UPDATE,
+    ENTITY_CHANGE,
+    ENTITY_DELETE,
 };
 
 
@@ -18,12 +18,7 @@ typedef struct {
     void     *components;
     unsigned  compsSize:10;  // 1024 bytes
     unsigned  action:3;
-
-    void ( *Awake  ) ( );
-    void ( *Update ) ( );
-    void ( *Delete ) ( );
-    
-    void *exec;
+    void     *exec;
 }
 Entity;
 
