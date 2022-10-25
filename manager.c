@@ -57,8 +57,8 @@ static void _removeFromEntities ( Manager *const manager, ManagerNode *const nod
 }
 
 
-static void _removeAll ( ManagerNode *const headNode ) {
-    ManagerNode *node = headNode;
+static void _removeList ( ManagerList *const list ) {
+    ManagerNode *node = list->head;
     
     while ( node ) {
         Entity      *const entity = node->entity;
@@ -135,8 +135,8 @@ void managerUpdate ( Manager *const manager ) {
 
 
 void managerEnd ( Manager *const manager ) {
-    _removeAll ( manager->entities.head );
-    _removeAll ( manager->cache.head    );
+    _removeList ( &manager->entities );
+    _removeList ( &manager->cache    );
 
     free ( manager );
 }
